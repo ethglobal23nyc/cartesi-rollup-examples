@@ -1,12 +1,13 @@
-# Echo Python DApp
+# DeML Python DApp
 
-This example represents a minimalistic Cartesi Rollups application that simply copies (or "echoes") each input received as a corresponding output notice. This DApp's back-end is written in Python.
+This example represents a minimalistic Cartesi Rollups application that was written with Decentralized Machine Learning in mind. The code simply lists each input received as a corresponding output notice. This DApp's back-end is written in Python.
 
 ## Interacting with the application
 
-We can use the [frontend-console](../frontend-console) application to interact with the DApp.
+- We can use the [frontend-console](../frontend-console) application to interact with the DApp.
 Ensure that the [application has already been built](../frontend-console/README.md#building) before using it.
 
+- As part of the 
 First, go to a separate terminal window and switch to the `frontend-console` directory:
 
 ```shell
@@ -60,3 +61,57 @@ INFO:__main__:Sending finish
 ```
 
 After that, you can interact with the application normally [as explained above](#interacting-with-the-application).
+
+# How it works with Cartesi Rollup Program
+This program is designed to work in the context of a Cartesi rollup solution. It interacts with Ethereum smart contracts and IPFS to facilitate model training and verification processes. The main components of this program include:
+
+- Smart Contract Interaction: The program interacts with Ethereum smart contracts to store training results and disperse rewards.
+
+- IPFS Integration: It uses IPFS (InterPlanetary File System) for downloading and uploading files, such as model files and data directories.
+
+- Training and Verification: The program simulates model training by appending filenames from a data directory to a model file. It also verifies whether the model file contains filenames from the data directory.
+
+- Reward Dispersal: In the case of successful verification, the program disperses a reward to a specified Ethereum address.
+
+- Rollup Communication: It communicates with a Cartesi rollup server using HTTP requests for handling advance, inspect, and finish states.
+
+## Usage
+Prerequisites
+Ethereum Node: You need access to an Ethereum node. Replace "http://your_ethereum_node_url:port" with the actual node URL in the code.
+
+Ethereum Wallet: Ensure you have a wallet with a private key for smart contract interaction.
+
+IPFS Daemon: This program assumes that you have a local IPFS daemon running at "/ip4/127.0.0.1/tcp/5001". Adjust this configuration if needed.
+
+### Configuration
+Set the contract_address and private_key variables to the address of the smart contract and its controlling private key.
+
+Update the smart contract ABI in the code with the ABI of your specific smart contract.
+
+## Functions
+- download_from_ipfs: Downloads a file or directory from IPFS by its CID and saves it to the specified output directory.
+
+- upload_to_ipfs: Uploads a file to IPFS and returns the CID of the uploaded file.
+
+- model_training: Simulates model training by appending filenames from a data directory to a model file.
+
+- broadcast_training_result: Broadcasts the result of the model training to the Ethereum blockchain.
+
+- handle_training_work: Downloads model files and data directories from IPFS, simulates training, appends filenames to the model file, and uploads the modified model file back to IPFS.
+
+- verify_model_contains_filenames: Verifies whether the model file contains filenames from the data directory.
+
+- disperse_reward: Disperses a reward from a smart contract-controlled wallet to the receiver's address.
+
+- handle_verification_work: Verifies if the model file contains the filenames from the data directory using their respective CIDs and disperses a reward upon successful verification.
+
+- handle_advance: Handles advance requests for both training and verification, initiates corresponding processes, and communicates with the Cartesi rollup server.
+
+- handle_inspect: Handles inspect requests and communicates with the Cartesi rollup server.
+
+- handlers: A dictionary mapping request types to their respective handling functions.
+
+- finish: A dictionary indicating the status of the rollup request.
+
+## Running the Program
+The program continuously listens for rollup requests. When a request is received, it processes the request type (advance or inspect) and performs the necessary actions, such as training, verification, and reward dispersal.
