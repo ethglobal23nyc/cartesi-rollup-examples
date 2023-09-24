@@ -5,10 +5,10 @@ This example represents a minimalistic Cartesi Rollups application that was writ
 ## Interacting with the application
 
 - We can use the [frontend-console](../frontend-console) application to interact with the DApp.
-Ensure that the [application has already been built](../frontend-console/README.md#building) before using it.
+  Ensure that the [application has already been built](../frontend-console/README.md#building) before using it.
 
-- As part of the 
-First, go to a separate terminal window and switch to the `frontend-console` directory:
+- As part of the
+  First, go to a separate terminal window and switch to the `frontend-console` directory:
 
 ```shell
 cd frontend-console
@@ -63,6 +63,7 @@ INFO:__main__:Sending finish
 After that, you can interact with the application normally [as explained above](#interacting-with-the-application).
 
 # How it works with Cartesi Rollup Program
+
 This program is designed to work in the context of a Cartesi rollup solution. It interacts with Ethereum smart contracts and IPFS to facilitate model training and verification processes. The main components of this program include:
 
 - Smart Contract Interaction: The program interacts with Ethereum smart contracts to store training results and disperse rewards.
@@ -76,6 +77,7 @@ This program is designed to work in the context of a Cartesi rollup solution. It
 - Rollup Communication: It communicates with a Cartesi rollup server using HTTP requests for handling advance, inspect, and finish states.
 
 ## Usage
+
 Prerequisites
 Ethereum Node: You need access to an Ethereum node. Replace "http://your_ethereum_node_url:port" with the actual node URL in the code.
 
@@ -84,11 +86,13 @@ Ethereum Wallet: Ensure you have a wallet with a private key for smart contract 
 IPFS Daemon: This program assumes that you have a local IPFS daemon running at "/ip4/127.0.0.1/tcp/5001". Adjust this configuration if needed.
 
 ### Configuration
+
 Set the contract_address and private_key variables to the address of the smart contract and its controlling private key.
 
 Update the smart contract ABI in the code with the ABI of your specific smart contract.
 
 ## Functions
+
 - download_from_ipfs: Downloads a file or directory from IPFS by its CID and saves it to the specified output directory.
 
 - upload_to_ipfs: Uploads a file to IPFS and returns the CID of the uploaded file.
@@ -114,4 +118,50 @@ Update the smart contract ABI in the code with the ABI of your specific smart co
 - finish: A dictionary indicating the status of the rollup request.
 
 ## Running the Program
+
 The program continuously listens for rollup requests. When a request is received, it processes the request type (advance or inspect) and performs the necessary actions, such as training, verification, and reward dispersal.
+
+### Run on Host mode
+
+In `echo-python` folder:
+
+```bash
+docker-compose -f ../docker-compose.yml -f ./docker-compose.override.yml -f ../docker-compose-host.yml up
+```
+
+On another tab, also in `echo-python` folder:
+
+```
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+ROLLUP_HTTP_SERVER_URL="http://127.0.0.1:5004" python3 echo.py
+```
+
+### Monitor results
+
+In `frontend-console` folder:
+
+```bash
+yarn start notice list
+```
+
+Make sure you have the `frontend-console` built: [README](../frontend-console/README.md#building)
+
+
+### Testing
+
+A graphQL playground is available at http://localhost:4000/graphql
+
+Or you can use this 
+```bash
+yarn start input send --payload '{
+  "payload": {
+    "request_type": "training",
+    "model_file_cid": "QmX34pksdf4sd3k24dfskd",
+    "data_dir_cid": "QmY78lkm24lsdf234ksd2j",
+    "receiver_address": "",
+    "reward_amount_wei": 0
+  }
+}'
+```

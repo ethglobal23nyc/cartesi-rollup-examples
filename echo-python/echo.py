@@ -17,16 +17,18 @@ import requests
 import ipfshttpclient
 from web3 import Web3
 
-# Initialize a Web3 instance with your Ethereum node URL
-# Replace 'http://your_ethereum_node_url:port' with your actual node URL
+# NOTE: Cartesi host machines can talk to IPFS but in prod Cartesi machine is sandboxed
+# with no network access.
+ipfs_client_addr = "/ip4/127.0.0.1/tcp/5001"
+
+# Initialize a Web3 instance with Ethereum node URL
+# Replace 'http://your_ethereum_node_url:port' with actual node URL
 w3 = Web3(Web3.HTTPProvider("http://your_ethereum_node_url:port"))
 
 # The address of the smart contract.
-contract_address = "0x..."  # Replace with your contract's address
+contract_address = "0x..."  # Replace with contract's address
 # The private key of the smart contract-controlled wallet.
-private_key = "..."  # Replace with your private key
-# Ensure the private key is in bytes format
-private_key = bytes.fromhex(private_key)
+private_key = ""  # Replace with private key, ensure the private key is in bytes format
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -44,7 +46,7 @@ def download_from_ipfs(cid: str, output_dir: str):
     """
     try:
         # Connect to the local IPFS daemon
-        client = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
+        client = ipfshttpclient.connect(ipfs_client_addr)
 
         # Download the file or directory by CID to the specified output directory
         client.get(cid, output_dir)
@@ -64,7 +66,7 @@ def upload_to_ipfs(file_path: str):
     """
     try:
         # Connect to the local IPFS daemon
-        client = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
+        client = ipfshttpclient.connect(ipfs_client_addr)
 
         # Upload the file and get the CID
         res = client.add(file_path)
@@ -117,7 +119,7 @@ def broadcast_training_result(training_result: str):
     """
     try:
         # Load the contract ABI and address
-        # Replace with your contract's ABI and address
+        # Replace with contract's ABI and address
         contract_abi = [...]
         contract = w3.eth.contract(address=contract_address, abi=contract_abi)
 
@@ -153,13 +155,15 @@ def broadcast_training_result(training_result: str):
         return None
 
 
-def handle_training_work(model_file_cid: str, data_dir_cid: str):
+def handle_training_work(model_file_cid: str, data_dir_cid: str) -> int:
     """
     Downloads a model file and a data directory from IPFS, simulates training,
     appends filenames to the model file, and uploads the modified model file back to IPFS.
 
     :param model_file_cid: The CID of the model file on IPFS.
     :param data_dir_cid: The CID of the data directory on IPFS.
+
+    :return training_cost: The cost of training the model in wei (smallest unit of ether).
     """
     try:
         # Define local directories for downloading and storing files
@@ -171,7 +175,7 @@ def handle_training_work(model_file_cid: str, data_dir_cid: str):
         download_from_ipfs(model_file_cid, download_dir)
         download_from_ipfs(data_dir_cid, download_dir)
 
-        # Simulate training (you can replace this with your actual training code)
+        # Simulate training (you can replace this with actual training code)
         print("Model training simulated successfully.")
 
         # Append filenames from the data directory to the model file
@@ -184,9 +188,11 @@ def handle_training_work(model_file_cid: str, data_dir_cid: str):
         new_model_cid = upload_to_ipfs(model_file_path)
 
         print(f"Updated model file uploaded to IPFS with CID: {new_model_cid}")
+        return 10  # TODO: Replace with the actual cost of training the model in wei
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+        return 5  # TODO: Replace with the actual cost of training fail in wei
 
 
 def verify_model_contains_filenames(model_file_path: str, data_dir_path: str) -> bool:
@@ -223,7 +229,7 @@ def disperse_reward(receiver_address, reward_amount_wei):
     """
     try:
         # Load the contract ABI and address
-        # Replace with your contract's ABI and address
+        # Replace with contract's ABI and address
         contract_abi = [...]
         contract = w3.eth.contract(address=contract_address, abi=contract_abi)
 
@@ -264,13 +270,17 @@ def handle_verification_work(
     data_dir_cid: str,
     receiver_address: str,
     reward_amount_wei: int,
-):
+) -> int | None:
     """
     Verifies if the model file contains the filenames from the data directory using
     their respective CIDs.
 
     :param model_file_cid: The CID of the model file on IPFS.
     :param data_dir_cid: The CID of the data directory on IPFS.
+    :param receiver_address: The Ethereum address of the receiver of the reward.
+    :param reward_amount_weii: The reward amount in wei (smallest unit of ether).
+
+    :return reward_amount_wei: The reward for finetuning model in wei.
     """
     try:
         # Define local directories for downloading files
@@ -293,6 +303,7 @@ def handle_verification_work(
                 receiver_address=receiver_address,
                 reward_amount_wei=reward_amount_wei,
             )
+            return reward_amount_wei
         else:
             print(
                 "Verification failed: Model does not contain all filenames from the data directory."
@@ -302,32 +313,57 @@ def handle_verification_work(
         print(f"An error occurred: {str(e)}")
 
 
-def handle_advance(data):
-    logger.info(f"Received advance request data {data}")
-    logger.info("Adding notice")
-    notice = {"payload": data["payload"]}
-    # Check if the request is for training or verification
-    if data["payload"]["request_type"] == "training":
-        # Handle training
-        handle_training_work(
-            data["payload"]["model_file_cid"], data["payload"]["data_dir_cid"]
-        )
-    elif data["payload"]["request_type"] == "verification":
-        # Handle verification
-        handle_verification_work(
-            data["payload"]["model_file_cid"],
-            data["payload"]["data_dir_cid"],
-            data["payload"]["receiver_address"],
-            data["payload"]["reward_amount_wei"],
-        )
-    else:
-        print("Invalid request type.")
+def hex2str(hex):
+    """
+    Decodes a hex string into a regular string
+    """
+    return bytes.fromhex(hex[2:]).decode("utf-8")
 
-    response = requests.post(rollup_server + "/notice", json=notice)
-    logger.info(
-        f"Received notice status {response.status_code} body {response.content}"
-    )
-    return "accept"
+
+def str2hex(str):
+    """
+    Encodes a string as a hex string
+    """
+    return "0x" + str.encode("utf-8").hex()
+
+
+def handle_advance(data):
+    try:
+        logger.info(f"Received advance request data {data}")
+        logger.info("Adding notice")
+        notice = {"payload": data["payload"]}
+        input = hex2str(data["payload"])
+        logger.info(f"Received input: {input}")
+
+        # Check if the request is for training or verification
+        if input["request_type"] == "training":
+            # Handle training
+            output = handle_training_work(
+                input["model_file_cid"], input["data_dir_cid"]
+            )
+        elif input["request_type"] == "verification":
+            # Handle verification
+            handle_verification_work(
+                input["model_file_cid"],
+                input["data_dir_cid"],
+                input["receiver_address"],
+                input["reward_amount_wei"],
+            )
+        else:
+            print("Invalid request type.")
+
+        response = requests.post(
+            rollup_server + "/notice", json={"payload": str2hex(str(output))}
+        )
+        # todo: create a /voucher - the payload is an ethereum transaction destination, to payout the reward
+
+        logger.info(
+            f"Received notice status {response.status_code} body {response.content}"
+        )
+        return "accept"
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        return "reject"
 
 
 def handle_inspect(data):
@@ -347,14 +383,18 @@ handlers = {
 finish = {"status": "accept"}
 
 while True:
-    logger.info("Sending finish")
-    response = requests.post(rollup_server + "/finish", json=finish)
-    logger.info(f"Received finish status {response.status_code}")
-    if response.status_code == 202:
-        logger.info("No pending rollup request, trying again")
-    else:
-        rollup_request = response.json()
-        data = rollup_request["data"]
+    try:
+        logger.info("Sending finish")
+        response = requests.post(rollup_server + "/finish", json=finish)
+        logger.info(f"Received finish status {response.status_code}")
+        if response.status_code == 202:
+            logger.info("No pending rollup request, trying again")
+        else:
+            rollup_request = response.json()
+            data = rollup_request["data"]
 
-        handler = handlers[rollup_request["request_type"]]
-        finish["status"] = handler(rollup_request["data"])
+            handler = handlers[rollup_request["request_type"]]
+            finish["status"] = handler(rollup_request["data"])
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        finish["status"] = f"error: {str(e)}"
